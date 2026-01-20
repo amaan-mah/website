@@ -1,0 +1,441 @@
+---
+title: "Project"
+author: "Mohammed Hussain"
+date: "2025-12-18"
+output: 
+  html_document: 
+    self_contained: false
+github_repo: https://github.com/amaan-mah/website
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r libraries, include=FALSE, error=FALSE}
+library(readxl)
+library(tidyverse)
+library(sf)
+library(plotly)
+```
+
+
+```{r region data}
+
+region_df <- read_csv("C:/Users/amaan/Desktop/Project/2023 Infant Death Rates (per 1,000 live births) by Region-County.csv", skip = 4, col_names = TRUE)
+
+region <- 
+  region_df |>
+  select("Residence:","2023 Infant Deaths","2023 Rate","2023 C.I.",
+         "Percent Change 2022 - 2023") |>
+  mutate(across(everything(), ~ str_remove_all(.x, "\\*"))) |>
+  separate(
+    "2023 C.I.", into = c("Lower_C.I,","Upper_C.I."), sep = " - "
+    ) |>
+  mutate(across(-1, as.numeric)) |>
+      rename(
+    "Residence" = "Residence:",
+    "Deaths" = "2023 Infant Deaths",
+    "Rate" = "2023 Rate",
+    "Pct_Change_2022-23" = "Percent Change 2022 - 2023"
+  ) |>
+  slice(1:(n() - 3))
+
+northeastern <- c("Caswell","Person","Granville","Vance","Warren","Alamance","Orange","Durham","Franklin","Chatham","Wake","Lee","Johnston")
+  
+```
+
+```{r region map}
+
+nc_shp_file <- system.file("shape/nc.shp", package = "sf")
+nc_shp <- st_read(nc_shp_file, quiet = TRUE)
+
+nc_region <- 
+  nc_shp |>
+  mutate(NAME = str_to_upper(NAME)) |>
+  left_join(region, by = c("NAME" = "Residence"))
+
+g <- ggplot(nc_region) +
+  geom_sf(aes(fill = Rate)) +
+  scale_fill_viridis_c(option = "plasma") +
+  theme_minimal() +
+  labs(fill = "Infant Death Rate")
+ggplotly(g)
+
+```
+
+```{r age_weight}
+
+age_df <- read_excel("C:/Users/amaan/Desktop/Project/Dashboard/Age vs Birthweight (All).xlsx", col_names = TRUE)
+
+age <-
+  age_df |>
+  filter(Age != "Not Stated",
+         Age != "Total")
+  mutate(
+    LBW = Lesser_than_1500 + From_1500_to_2499,
+    Age_Group = case_when(
+      Mother_Age <= 19 ~ "19 and below",
+      Mother_Age <= 24 ~ "20 thru 24",
+      TRUE ~ Mother_Age)
+    ) |>
+  group_by(Age_Group) |>
+  summarize(
+    LBW = sum(LBW),
+    Total = sum(Total),
+    .groups="drop") |>
+  select(Age_Group,LBW,Total) |>
+  slice(1:(n() - 2))
+age
+
+age$Age_Group <- factor(age$Age_Group)
+age$Age_Group <- relevel(age$Age_Group, ref = "25 thru 29")
+age_model_binom <- glm(
+  cbind(LBW, Total - LBW) ~ Age_Group,
+  family = binomial,
+  data = age
+)
+summary(age_model_binom)
+
+```
+
+```{r care_weight}
+
+care_df <- read_excel("C:/Users/amaan/Desktop/Project/Prenatal Care Month vs Birthweight (All).xlsx", col_names = TRUE)
+
+care <-
+  care_df |>
+  rename(
+    "Month_Prenatal_Care_Began" = "Month\r\nPrenatal Care\r\nBegan",
+    "Lesser_than_1500" = "<1500",
+    "From_1500_to_2499" = "1500 - 2499",
+    "Greater_Equal_than_2500" = ">=2500"
+    ) |>
+  mutate(
+    LBW = Lesser_than_1500 + From_1500_to_2499,
+    Care_Group = case_when(
+      Month_Prenatal_Care_Began %in% c("First Month","Second Month","Third Month") ~ "1st Trimester",
+      Month_Prenatal_Care_Began %in% c("Fourth Month","Fifth Month","Sixth Month") ~ "2nd Trimester",
+      Month_Prenatal_Care_Began %in% c("Seventh Month","Eighth Month","Ninth Month") ~ "3rd Trimester",
+      Month_Prenatal_Care_Began == "None" ~ "None")
+    ) |>
+  group_by(Care_Group) |>
+  summarize(
+    LBW = sum(LBW),
+    Total = sum(Total),
+    .groups="drop") |>
+  select(Care_Group,LBW,Total) |>
+  slice(1:(n() - 1))
+care
+
+care$Care_Group <- factor(care$Care_Group)
+care$Care_Group <- relevel(care$Care_Group, ref = "1st Trimester")
+care_model_binom <- glm(
+  cbind(LBW, Total - LBW) ~ care$Care_Group,
+  family = binomial,
+  data = care
+)
+summary(care_model_binom)
+
+```
+
+Risk Factors
+
+```{r smoke_weight}
+
+smoke_df <- read_excel("C:/Users/amaan/Desktop/Project/Smoking vs Birthweight (All).xlsx", col_names = TRUE)
+
+smoke <-
+  smoke_df |>
+  rename(
+    "Maternal_Smoking" = "Maternal\r\nSmoking,\r\nThis Pregnancy",
+    "Lesser_than_1500" = "<1500",
+    "From_1500_to_2499" = "1500 - 2499",
+    "Greater_Equal_than_2500" = ">=2500"
+    ) |>
+  mutate(LBW = Lesser_than_1500 + From_1500_to_2499)
+  select(Maternal_Smoking,LBW,Total) |>
+  slice(1:(n() - 1))
+smoke
+
+```
+
+```{r bmi_weight}
+
+bmi_df <- read_excel("C:/Users/amaan/Desktop/Project/BMI vs Birthweight (All).xlsx", col_names = TRUE)
+colnames(bmi_df)
+
+bmi <-
+  bmi_df |>
+  rename(
+    "Prepregnancy_BMI" = "Maternal\r\nPre-pregnancy BMI,\r\nThis Pregnancy",
+    "Lesser_than_1500" = "<1500",
+    "From_1500_to_2499" = "1500 - 2499",
+    "Greater_Equal_than_2500" = ">=2500"
+    ) |>
+  mutate(LBW = Lesser_than_1500 + From_1500_to_2499) |>
+  select(Prepregnancy_BMI,LBW,Total) |>
+  slice(1:(n() - 2))
+bmi
+
+bmi$Prepregnancy_BMI <- factor(bmi$Prepregnancy_BMI)
+bmi$Prepregnancy_BMI <- relevel(bmi$Prepregnancy_BMI, ref = "Normal (18.5-24.9)")
+bmi_model_binom <- glm(
+  cbind(LBW, Total - LBW) ~ bmi$Prepregnancy_BMI,
+  family = binomial,
+  data = bmi
+)
+summary(bmi_model_binom)
+
+```
+
+```{r edu_weight}
+
+edu_df <- read_excel("C:/Users/amaan/Desktop/Project/Education vs Birthweight (All).xlsx", col_names = TRUE)
+colnames(edu_df)
+
+edu <-
+  edu_df |>
+  rename(
+    "Education" = "Education of Mother",
+    "Lesser_than_1500" = "<1500",
+    "From_1500_to_2499" = "1500 - 2499",
+    "Greater_Equal_than_2500" = ">=2500"
+    ) |>
+  mutate(LBW = Lesser_than_1500 + From_1500_to_2499) |>
+  select(Education,LBW,Total) |>
+  slice(1:(n() - 2))
+edu
+
+edu$Education <- factor(edu$Education)
+edu$Education <- relevel(edu$Education, ref = "High School Graduate or GED")
+edu_model_binom <- glm(
+  cbind(LBW, Total - LBW) ~ edu$Education,
+  family = binomial,
+  data = edu
+)
+summary(edu_model_binom)
+
+```
+
+
+```{r epa}
+
+epa_df <- read_csv("C:/Users/amaan/Desktop/Project/EPA_2023_nc.csv", col_names = TRUE)
+
+epa <-
+  epa_df |>
+  rename(
+    "Facility_Name" = "4. FACILITY NAME",
+    "Street_Address" = "5. STREET ADDRESS",
+    "City" = "6. CITY",
+    "County" = "7. COUNTY",
+    "ZIP" = "9. ZIP",
+    "Latitude" = "12. LATITUDE",
+    "Longitude" = "13. LONGITUDE",
+    "Industry" = "23. INDUSTRY SECTOR",
+    "Chemical" = "37. CHEMICAL",
+    "Fugitive_Air" = "51. 5.1 - FUGITIVE AIR",
+    "Stack_Air" = "52. 5.2 - STACK AIR",
+    "Water" = "53. 5.3 - WATER",
+    "Underground" = "54. 5.4 - UNDERGROUND"
+  ) |>
+  filter(City == "DURHAM") |>
+  arrange(desc(Fugitive_Air),desc(Stack_Air),desc(Water),desc(Underground)) |>
+  select(ZIP,Chemical,Facility_Name,Street_Address,Longitude,Latitude,Industry,Fugitive_Air,Stack_Air,Water,Underground)
+epa
+
+# Scale the data
+#epa_scaled <- 
+#  epa |>
+#  mutate(across(c(Longitude,Latitude), scale))
+
+# Select the data for clustering
+epa_cluster <- 
+  epa |> 
+  select(Longitude,Latitude)
+
+# K-Means
+fit <- kmeans(epa_cluster, centers = 3, iter.max = 50, nstart = 20)
+epa$Cluster <- fit$cluster
+
+epa_n <- 
+  epa |> 
+  group_by(Cluster) |>
+  summarize(Count = n())
+epa_n
+
+epa_k <-
+  epa |>
+  group_by(Cluster) |>
+  summarize(
+    Longitude_Center = mean(Longitude),
+    Latitude_Center = mean(Latitude)
+  ) |>
+  select(Cluster,Longitude_Center,Latitude_Center)
+epa_k
+
+```
+
+```{r epa_map}
+
+durham_sf <- st_read("C:/Users/amaan/Desktop/Project/tl_2022_37063_faces/tl_2022_37063_faces.shp",quiet=TRUE)
+st_crs(durham_sf)
+
+#durham <- 
+#  nc_shp |>
+#  filter(NAME == "Durham")
+
+epa_sf <- st_as_sf(epa_k, coords = c("Longitude_Center", "Latitude_Center"), crs = 4269)
+#epa_sf <- st_transform(epa_sf, st_crs(durham_sf))
+st_coordinates(epa_sf)
+
+durham_sf$ZCTA5CE20 <- factor(durham_sf$ZCTA5CE20)
+
+g <- ggplot() +
+  geom_sf(
+    data = durham_sf,
+    aes(fill = ZCTA5CE20),
+    color = "grey40",        # ZIP boundaries
+    linewidth = 0.3
+  ) +
+  geom_sf(
+    data = epa_sf,
+    aes(color = factor(Cluster)),
+    size = 4,
+    shape = 21,
+    fill = "white",
+    stroke = 1.2
+  ) +
+  scale_fill_viridis_d(
+    name = "ZIP Code",
+    option = "turbo"
+  ) +
+  scale_color_brewer(
+    palette = "Set1",
+    name = "Cluster"
+  ) +
+  labs(
+    title = "EPA Cluster Centroids and ZIP Codes in Durham County"
+  ) +
+  theme_minimal() +
+  theme(
+    panel.grid = element_blank(),
+    axis.title = element_blank()
+  )
+ggplotly(g)
+
+```
+
+
+
+Disparity
+
+```{r wb region data}
+
+#2019-2023
+
+wbregion_df <- read_csv("C:/Users/amaan/Desktop/Project/2023 Infant Death Rates (per 1,000 live births) by Whites & Black and Region-County.csv", skip = 3, col_names = TRUE)
+
+wbregion <- 
+  wbregion_df |>
+  select(-"NH White C.I.",-"NH Black C.I.") |>
+  mutate(across(everything(), ~ str_remove_all(.x, "\\*"))) |>
+  mutate(across(-1, as.numeric)) |>
+  rename(
+    "Residence" = "Residence:",
+    "White_Deaths" = "NH White Deaths",
+    "White_Rate" = "NH White Rate",
+    "Black_Deaths" = "NH Black Deaths",
+    "Black_Rate" = "NH Black Rate",
+    "Disparity_Ratio" = "Disparity Ratio"
+  ) |>
+  mutate(
+    White_Births = (White_Deaths / White_Rate) * 1000,
+    Black_Births = (Black_Deaths / Black_Rate) * 1000
+  ) |>
+  dplyr::arrange(desc(Disparity_Ratio)) |>
+  slice(1:(n() - 5))
+
+```
+
+```{r wbregion test}
+
+wbnenc <-
+  wbregion |>
+  filter(Residence == "PCR IV: Northeastern")
+prop.test(
+  x = c(wbnenc$Black_Deaths, wbnenc$White_Deaths),
+  n = c(wbnenc$Black_Births, wbnenc$White_Births)
+)
+
+wbdurham <-
+  wbregion |>
+  filter(Residence == "DURHAM")
+wbnc <-
+  wbregion |>
+  filter(Residence == "NORTH CAROLINA")
+
+prop.test(
+  x = c(wbdurham$Black_Deaths, wbdurham$White_Deaths),
+  n = c(wbdurham$Black_Births, wbdurham$White_Births)
+)
+prop.test(
+  x = c(wbnc$Black_Deaths, wbnc$White_Deaths),
+  n = c(wbnc$Black_Births, wbnc$White_Births)
+)
+
+p_durham_black <- wbdurham$Black_Deaths / wbdurham$Black_Births
+p_durham_white <- wbdurham$White_Deaths / wbdurham$White_Births
+p_nc_black <- wbnc$Black_Deaths / wbnc$Black_Births
+p_nc_white <- wbnc$White_Deaths / wbnc$White_Births
+
+diff_durham <- p_durham_black - p_durham_white
+diff_nc  <- p_nc_black - p_nc_white
+DoD <- diff_durham - diff_nc
+DoD
+SE_DoD <- sqrt(
+  p_durham_black*(1 - p_durham_black)/wbdurham$Black_Births +
+  p_durham_white*(1 - p_durham_white)/wbdurham$White_Births +
+  p_nc_black*(1 - p_nc_black)/wbnc$Black_Births +
+  p_nc_white*(1 - p_nc_white)/wbnc$White_Births
+)
+z <- DoD / SE_DoD
+z
+p_value <- 2 * (1 - pnorm(abs(z)))
+p_value
+
+```
+
+```{r wbregion logreg}
+
+wb_log <-
+  wbregion |>
+  filter(Residence == "DURHAM" | Residence == "NORTH CAROLINA") |>
+  pivot_longer(cols = c("White_Deaths","Black_Deaths"),
+               names_to = "Race",
+               values_to = "Deaths") |>
+  mutate(across(Race, ~ str_remove_all(.x, "_Deaths"))) |>
+  mutate(
+    Births = ifelse(Race == "Black", Black_Births, White_Births)
+  ) |>
+  rename("Region" = "Residence") |>
+  select(Region,Race,Deaths,Births)
+
+wb_log$Race <- factor(wb_log$Race)
+wb_log$Race <- relevel(wb_log$Race, ref = "White")
+wb_log$Region <- factor(wb_log$Region)
+wb_log$Region <- relevel(wb_log$Region, ref = "NORTH CAROLINA")
+
+model <- glm(
+  cbind(Deaths, Births - Deaths) ~ Race * Region,
+  family = binomial,
+  data = wb_log
+)
+
+summary(model)
+
+```
+
+
+
