@@ -1,7 +1,6 @@
 ---
 title: "Project"
 author: "Mohammed Hussain"
-date: "2025-12-18"
 output: 
   html_document:
     self_contained: false
@@ -21,22 +20,39 @@ library(plotly)
 library(leaflet)
 ```
 
-Durham map divided into ZIP Code Regions
-```{r zip}
+```{r zip, include=FALSE}
 zip_shp <- st_read("C:/Users/amaan/Desktop/Project/GIS/ZIP_Codes_in_Durham_County/ZIP_Codes_in_Durham_County.shp", quiet = TRUE)
 zip_shp <- st_transform(zip_shp, 32119)
 ```
-Durham map with Roads
-```{r road}
+```{r road, include=FALSE}
 road_shp <- st_read("C:/Users/amaan/Desktop/Project/GIS/Roads/Roads.shp",quiet = TRUE)
 road_shp <- st_transform(road_shp, 32119)
 ```
 
-![The region of interest mapped in reseacrh articles](C:/Users/amaan/Desktop/Project/GIS/Region.png)
+![The region of interest mapped in research articles](C:/Users/amaan/Desktop/Project/website/GIS Data & Code/Region.png)
 
-Map the region of interest
+I will map this approximate region using ZIP code region and roads data available on Durham Open Data Portal. The region covers parts of the four ZIP code regions: 27701,27703,27704,27707. The region is bounded by four highways: 15/501,85,885,147.
 
-```{r map}
+I ran into a lot of trouble trying to combine roads and cut boundaries with the ZIP code regions. I was trying to make a boundary with the four highways but the individual data points for the roads were numerous to combine into one line string or multi-string. I decided to manually plot four points and connect them as a polygon to mark the region of interest. Then it was easier to intersect the ZIP code regions and roads to focus on the region of interest. I learned that manually plotting points is not uncommon for such a task.
+
+```{r boundaries}
+# The boundaries can be manually created using estimated coordinates
+cut_poly <- 
+  st_polygon(
+    list(
+      rbind(
+        c(-78.90, 36.02),  # NW
+        c(-78.86, 36.02),  # NE
+        c(-78.86, 35.96),  # SE
+        c(-78.90, 35.96),  # SW
+        c(-78.90, 36.02)
+          )
+        )
+      )
+```
+
+
+```{r region_map, include=FALSE}
 
 # The region of interest extends into three ZIP code regions
 zips_sel <- 
@@ -76,30 +92,31 @@ durham <- zip_shp |> filter(CITY == "DURH")
   #   color = "#2b2b2b",
   #   weight = 1
   # ) %>%
-  
-base <- 
-  
-  leaflet(options = leafletOptions(preferCanvas = TRUE)) %>%
-  addProviderTiles(providers$CartoDB.Positron) %>%
 
-  # ZIP code boundaries
+```
+
+
+```{r base}
+
+base <- 
+  leaflet(options = leafletOptions(preferCanvas = TRUE)) |>
+  addProviderTiles(providers$CartoDB.Positron) |>
+  # ZIP code regions
   addPolygons(
     data = zips_cut,
     fill = FALSE,
     color = "brown",
     weight = 0.5,
     opacity = 0.6
-  ) %>%
-
+  ) |>
   # Roads
   addPolylines(
     data = roads_cut,
     color = "black",
     weight = 1,
     opacity = 0.7
-  ) %>%
-
-  # Region of interest (rectangle)
+  ) |>
+  # Region of interest
   addPolygons(
     data = cut_poly,
     fill = FALSE,
@@ -107,11 +124,6 @@ base <-
     weight = 2,
     dashArray = "5,5"
   )
-
 base
 
-
 ```
-
-
-
