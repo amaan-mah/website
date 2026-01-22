@@ -410,6 +410,130 @@ base |>
 
 ```
 
+### Green Space
+
+3-30-300 Rule (for equitable access):
+3: See at least three trees from your window.
+30: Have 30% tree canopy cover in your neighborhood.
+300: Live within 300 meters of a quality park or green space.
+
+```{r trees_data_cleaning}
+
+tree_shp_file <- st_read("C:/Users/amaan/Desktop/Project/GIS/Trees_%26_Planting_Sites/Trees_%26_Planting_Sites.shp", quiet = TRUE)
+tree_shp <-
+  tree_shp_file |>
+  filter(
+    present == "Tree",
+    neighborho %in% c("Downtown","Old East Durham","Other",NA)) |>
+  select(
+    OBJECTID,streetaddr,zipcode,facilityid,neighborho,
+    genus,species,commonname,heightft,condition,
+    vocs,pm10remove,pm25remove,polremoved,
+    leafarea_s,
+    geometry
+    )
+
+tree_shp <- st_transform(tree_shp,4326)
+trees <- st_intersection(tree_shp,cut_poly)
+
+```
+
+We need to create a buffer around the house cluster to capture the canopy around the area. A distance of a 1000m or 1km is enough.
+
+```{r trees_data_1, echo=TRUE, include=TRUE}
+houses_point1_buffer <- st_buffer(houses_point1,dist=1000)
+trees_houses_point1 <- st_intersection(trees,houses_point1_buffer)
+```
+
+The tree data also has the leaf area for each tree which we can use to estimate the area covered by the trees. We can sum and convert the areas of all the trees in the buffer area
+
+```{r trees_data_2, echo=TRUE, include=TRUE}
+trees_houses_point1_area <- sum(trees_houses_point1$leafarea_s,na.rm=TRUE)
+houses_point1_area <- st_area(houses_point1_buffer)*10.7639
+```
+
+The greenery can be calculated by dividing the area of the trees by the area of the buffer around the house cluster.
+
+```{r trees_data_3, echo=TRUE, include=TRUE}
+tree_greenery_pct <- (trees_houses_point1_area/houses_point1_area)*100
+tree_greenery_pct
+```
+
+
+```{r trees_map, include=TRUE}
+
+houses_point1_buffer <- st_transform(houses_point1_buffer,4326)
+trees_houses_point1 <- st_transform(trees_houses_point1,4326)
+
+base |>
+  addPolygons(
+    data = houses_point1_buffer,
+    label = "House",
+    labelOptions = labelOptions(noHide = TRUE,textOnly = TRUE,
+                                direction = "bottom"),
+    fill = "blue",
+    color = "blue",
+    weight = 5
+  ) |>
+  addCircles(
+    data = trees_houses_point1,
+    color = "green",
+    weight = 1
+  )
+
+```
+
+
+```{r parks_data_cleaning}
+
+park_shp <- st_read("C:/Users/amaan/Desktop/Project/GIS/Parks/Parks.shp", quiet = TRUE)
+
+park_shp <- st_transform(park_shp,4326)
+parks <- st_intersection(park_shp,cut_poly)
+
+```
+
+We need to find the nearest parks and check if they are within the region.
+
+```{r parks_data, echo=TRUE, include=TRUE}
+
+dists <- as.vector(st_distance(houses_point1,parks))
+parks$Distance <- dists
+
+parks_houses_point1 <- 
+  parks |>
+  filter(Distance <= 1000) |>
+  arrange(Distance) |>
+  select(NAME,Distance,PARKACRES)
+parks_houses_point1 |> 
+  as_tibble() |> 
+  select(-geometry)
+
+```
+
+```{r parks_map, include=TRUE}
+
+base |>
+  addCircleMarkers(
+    data = houses_point1,
+    label = "House",
+    labelOptions = labelOptions(noHide = TRUE,textOnly = TRUE,
+                                direction = "bottom"),
+    fill = "blue",
+    color = "blue",
+    weight = 5
+  ) |>
+  addPolygons(
+    data = parks_houses_point1,
+    fill = "green",
+    color = "green",
+    weight = 5
+  )
+  
+```
+
+
+
 ### GoDurham Bus Routes
 
 
@@ -435,10 +559,10 @@ route3C <- st_transform(route3C,4326)
 ```
 
 
+```{r routes_map, include=TRUE}
 
-```{r routes_map}
-
-base |>
+base_plan <-
+  base |>
   addCircleMarkers(
     data = houses_point1,
     label = "House",
@@ -451,9 +575,10 @@ base |>
   addPolylines(
     data = route3C,
     label = ~line_number,
-    color = "lightblue",
-    weight = 1
+    color = "darkblue",
+    weight = 3
   )
+base_plan
 
 ```
 
@@ -480,16 +605,7 @@ foods$name
 The region of interest has 19 food pantries with the vast majority being churches.
 
 ```{r foods_map, include=TRUE}
-base |>
-  addCircleMarkers(
-    data = houses_point1,
-    label = "House",
-    labelOptions = labelOptions(noHide = TRUE,textOnly = TRUE,
-                                direction = "bottom"),
-    fill = "blue",
-    color = "blue",
-    weight = 5
-  ) |>
+base_plan |>
   addCircles(
     data = foods,
     label = ~name,
@@ -518,16 +634,7 @@ farms$name
 The region of interest has 2 farmers' markets.
 
 ```{r farms_map, include=TRUE}
-base |>
-  addCircleMarkers(
-    data = houses_point1,
-    label = "House",
-    labelOptions = labelOptions(noHide = TRUE,textOnly = TRUE,
-                                direction = "bottom"),
-    fill = "blue",
-    color = "blue",
-    weight = 5
-  ) |>
+base_plan |>
   addCircles(
     data = farms,
     label = ~name,

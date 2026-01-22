@@ -21,6 +21,27 @@ ggplot() +
   geom_sf_label(data = houses_point1, aes(label = Cluster)) +
   theme_minimal() +
   coord_sf(datum = NA)
+
+Trees
+
+ggplot() +
+  geom_sf(data = zips_cut) +
+  geom_sf(data = roads_cut, color = "black") +
+  geom_sf(data = cut_poly, fill = NA, color = "red", linewidth = 1) +
+  geom_sf(data = houses_point1, color = "yellow") +
+  geom_sf(data = trees, color = "green") +
+  theme_minimal() +
+  coord_sf(datum = NA)
+  
+Parks
+
+ggplot() +
+  geom_sf(data = zips_cut) +
+  geom_sf(data = roads_cut, color = "black") +
+  geom_sf(data = cut_poly, fill = NA, color = "red", linewidth = 1) +
+  geom_sf(data = houses_point1, color = "red") +
+  geom_sf(data = parks, fill = "green")
+  coord_sf(datum = NA)
   
 Bus Routes
 
