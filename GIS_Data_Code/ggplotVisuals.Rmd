@@ -21,3 +21,23 @@ ggplot() +
   geom_sf_label(data = houses_point1, aes(label = Cluster)) +
   theme_minimal() +
   coord_sf(datum = NA)
+  
+Food Pantries
+
+ggplot() +
+  geom_sf(data = zips_cut) +
+  geom_sf(data = roads_cut, color = "black") +
+  geom_sf(data = cut_poly, fill = NA, color = "red", linewidth = 1) +
+  geom_sf(data = foods, color = "green") +
+  theme_minimal() +
+  coord_sf(datum = NA)
+  
+Farmer Markets
+
+ggplot() +
+  geom_sf(data = zips_cut) +
+  geom_sf(data = roads_cut, color = "black") +
+  geom_sf(data = cut_poly, fill = NA, color = "red", linewidth = 1) +
+  geom_sf(data = farms, color = "green") +
+  theme_minimal() +
+  coord_sf(datum = NA)

@@ -6,6 +6,12 @@ output:
     self_contained: false
 ---
 
+<style>
+pre.r {
+  max-width: 65%;
+}
+</style>
+
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(
   echo       = FALSE,
@@ -38,7 +44,8 @@ road_shp <- st_read("C:/Users/amaan/Desktop/Project/GIS/Roads/Roads.shp",quiet =
 road_shp <- st_transform(road_shp, 32119)
 ```
 
-![The region of interest mapped in research articles](C:/Users/amaan/Desktop/Project/website/GIS Data & Code/Region.png)
+
+![The region of interest mapped in research articles](C:/Users/amaan/Desktop/Project/website/GIS_Data_Code/Region.png){width=150px}
 
 I will map this approximate region using ZIP code region and roads data available on Durham Open Data Portal. The region covers parts of the four ZIP code regions: 27701,27703,27704,27707. The region is bounded by four highways: 15/501,85,885,147.
 
@@ -139,7 +146,7 @@ base
 
 ### Exploring EPA Data
 
-The [previous studies](https://pubmed.ncbi.nlm.nih.gov/26449855/) have observed the Cadmium concentrations in water and soil, and did not find a significant correlation with the blood Cadmium levels. However, there were no measurements of Cadmium in the air and considering that the Durham county has quite a few industries, it is worth checking the EPA data for emissions in general.
+The have observed the Cadmium concentrations in water and soil, and did not find a significant correlation with the blood Cadmium levels [1](https://pubmed.ncbi.nlm.nih.gov/26449855/). However, there were no measurements of Cadmium in the air and considering that the Durham county has quite a few industries, it is worth checking the EPA data for emissions in general.
 
 ```{r epa_data_cleaning}
 
@@ -188,7 +195,7 @@ The measurements for all emissions are in pounds here which allows for easy comp
 
 The facilities mostly have emissions under stack air which means the emissions are released through controlled airways, but Brenntag Mid-South mostly has emissions under fugitive air which means the emissions are leaked unintentionally and possibly due to faulty equipment.
 
-No emissions are released into the water or underground which matches the [findings from the study](https://pubmed.ncbi.nlm.nih.gov/26449855/) a decade ago when no significant associations were found between Cadmium blood levels and Cadmium concentrations in water and soil, and possibly demonstrates that the finding still holds in the present as no emissions are released into the water or underground. 
+No emissions are released into the water or underground which matches the findings from the study a decade ago when no significant associations were found between Cadmium blood levels and Cadmium concentrations in water and soil [1](https://pubmed.ncbi.nlm.nih.gov/26449855/), and possibly demonstrates that the finding still holds in the present as no emissions are released into the water or underground. 
 
 ```{r epa_data_anlaysis}
 
@@ -396,6 +403,85 @@ base |>
     weight = 5
   )
 
+```
+
+### Acccess to Grocery and Healthy Foods
+
+There was a study that explored the impact of a Mediterranean diet on blood Cadmium levels, and though there was no significant association with diet, the conclusion of the study was that diet is a factor that is still worth exploring [2](https://pmc.ncbi.nlm.nih.gov/articles/PMC7712046/). In any case then, it also helps to see if free food is available for the residents to possibly use it as places to distribute foods that can potentially affect blood Cadmium levels.
+
+```{r foods_data_cleaning}
+
+food_shp <- st_read("C:/Users/amaan/Desktop/Project/GIS/Food_Pantries/Food_Pantries.shp", quiet = TRUE)
+
+cut_poly <- st_transform(cut_poly,32119)
+food_shp <- st_transform(food_shp,32119)
+foods <- 
+  st_intersection(food_shp,cut_poly)
+foods <- st_transform(foods,4326)
+
+```
+
+```{r foods_data, include=TRUE}
+foods$name
+```
+The region of interest has 19 food pantries with the vast majority being churches.
+
+```{r foods_map, include=TRUE}
+base |>
+  addCircleMarkers(
+    data = houses_point1,
+    label = "House",
+    labelOptions = labelOptions(noHide = TRUE,textOnly = TRUE,
+                                direction = "bottom"),
+    fill = "blue",
+    color = "blue",
+    weight = 5
+  ) |>
+  addCircles(
+    data = foods,
+    label = ~name,
+    fill = "green",
+    color = "green",
+    weight = 5
+  )   
+```
+
+
+```{r farms_data_cleaning}
+
+farm_shp <- st_read("C:/Users/amaan/Desktop/Project/GIS/Farmers_Markets/Farmers_Markets.shp", quiet = TRUE)
+
+cut_poly <- st_transform(cut_poly,32119)
+farm_shp <- st_transform(farm_shp,32119)
+farms <- 
+  st_intersection(farm_shp,cut_poly)
+farms <- st_transform(farms,4326)
+
+```
+
+```{r farms_data, include=TRUE}
+farms$name
+```
+The region of interest has 2 farmers' markets.
+
+```{r farms_map, include=TRUE}
+base |>
+  addCircleMarkers(
+    data = houses_point1,
+    label = "House",
+    labelOptions = labelOptions(noHide = TRUE,textOnly = TRUE,
+                                direction = "bottom"),
+    fill = "blue",
+    color = "blue",
+    weight = 5
+  ) |>
+  addCircles(
+    data = farms,
+    label = ~name,
+    fill = "green",
+    color = "green",
+    weight = 5
+  )   
 ```
 
 
